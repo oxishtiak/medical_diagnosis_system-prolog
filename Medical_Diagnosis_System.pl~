@@ -1,0 +1,108 @@
+/* ==========================================
+   Medical Diagnosis Expert System 
+   ========================================== */
+
+% ----------------------------
+% 1) FACTS
+% ----------------------------
+symptom(fever).
+symptom(cough).
+symptom(headache).
+symptom(fatigue).
+symptom(sore_throat).
+symptom(loss_of_taste).
+symptom(runny_nose).
+symptom(chest_pain).
+symptom(shortness_of_breath).
+symptom(body_ache).
+symptom(nausea).
+symptom(vomiting).
+symptom(diarrhea).
+symptom(sensitivity_to_light).
+symptom(joint_pain).
+symptom(skin_rash).
+
+% Diseases with symptom lists
+disease(flu,            [fever, cough, headache, body_ache, fatigue]).
+disease(covid19,        [fever, cough, loss_of_taste, shortness_of_breath, fatigue]).
+disease(cold,           [cough, sore_throat, runny_nose, headache]).
+disease(pneumonia,      [fever, cough, chest_pain, shortness_of_breath]).
+disease(migraine,       [headache, nausea, sensitivity_to_light]).
+disease(food_poisoning, [nausea, vomiting, diarrhea, fatigue]).
+disease(dengue,         [fever, headache, joint_pain, skin_rash, fatigue]).
+disease(typhoid,        [fever, headache, fatigue, body_ache, diarrhea]).
+disease(chikungunya,    [fever, joint_pain, skin_rash, fatigue]).
+
+% Treatment suggestions
+treatment(flu, "Rest, fluids, over-the-counter pain relievers").
+treatment(covid19, "Isolation, rest, fluids, consult doctor if severe").
+treatment(cold, "Rest, hydration, warm fluids").
+treatment(pneumonia, "Antibiotics (if bacterial), hospitalization if severe").
+treatment(migraine, "Pain relief meds, rest in dark quiet room").
+treatment(food_poisoning, "Hydration, oral rehydration salts, rest").
+treatment(dengue, "Paracetamol for fever, avoid NSAIDs, hydration").
+treatment(typhoid, "Antibiotics, hydration, rest").
+treatment(chikungunya, "Pain relief meds, hydration, rest").
+
+% ----------------------------
+% 2) RULES
+% ----------------------------
+disease_has_symptom(D, S) :-
+    disease(D, Symptoms),
+    member(S, Symptoms).
+
+matched_count([], _, 0).
+matched_count([X|Xs], Ds, M) :-
+    (   memberchk(X, Ds)
+    ->  matched_count(Xs, Ds, M1), M is M1 + 1
+    ;   matched_count(Xs, Ds, M)
+    ).
+
+score_disease_for(Given, Disease, Percent) :-
+    disease(Disease, Ds),
+    matched_count(Given, Ds, M),
+    length(Ds, N),
+    ( N =:= 0 -> Percent = 0.0 ; Percent is (M / N) * 100.0 ).
+
+diagnose_from_list(Given, SortedPairs) :-
+    findall((D,P), score_disease_for(Given, D, P), Pairs),
+    sort(2, @>=, Pairs, SortedPairs).
+
+% High risk if = 70% match
+high_risk_disease(Given, Disease) :-
+    score_disease_for(Given, Disease, P),
+    P >= 70.
+
+recommend_treatment(Disease, Treatment) :-
+    treatment(Disease, Treatment).
+
+% ----------------------------
+% 3) OUTPUT
+% ----------------------------
+print_diagnoses([]).
+print_diagnoses([(D, S)|T]) :-
+    format('~w - Match: ~1f%%~n', [D, S]),
+    ( S >= 70 -> write(' ** High Risk **'), nl ; true ),
+    print_diagnoses(T).
+
+print_diagnosis_from_list(Given) :-
+    diagnose_from_list(Given, Sorted),
+    nl, write('--- Possible Diagnoses ---'), nl,
+    print_diagnoses(Sorted).
+
+start(GivenSymptoms) :-
+    write('--- Medical Diagnosis System ---'), nl,
+    print_diagnosis_from_list(GivenSymptoms).
+
+% ----------------------------
+% 4) WHY RECOMMENDED (Explanation rule)
+% ----------------------------
+why_recommended(Symptoms, Disease) :-
+    score_disease_for(Symptoms, Disease, Percent),
+    Percent > 0, % only show explanation if there's a match
+    format('~w suspected because:~n', [Disease]),
+    disease(Disease, Ds),
+    intersection(Symptoms, Ds, Matches),
+    format('- Matching symptoms: ~w~n', [Matches]),
+    format('- Match percentage: ~1f%%~n', [Percent]),
+    (Percent >= 70 -> write('- Classified as HIGH RISK'), nl ; true).
